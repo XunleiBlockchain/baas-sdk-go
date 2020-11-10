@@ -219,7 +219,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	// The non-contract gasLimit would be equal to gasUsed, so gasLimit * gasPrice = 0.01 (eth)
 
 	// TODO @binacs 此处对于最新的底层链GasPrice是0 此处注释应取消
-	// gasPrice = big.NewInt(ParGasPrice)
+	gasPrice = big.NewInt(ParGasPrice)
 	if !IsContract(data) {
 		d.GasLimit = ParGasLimit
 	}
