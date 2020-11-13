@@ -66,7 +66,6 @@ func initServerConfig() (err error) {
 		XHost:                  conf.XHost,
 		Namespace:              conf.Namespace,
 		ChainID:                conf.ChainID,
-		GetFee:                 conf.GetFee,
 		GetGasPrice:            conf.GetGasPrice,
 	}
 	if authInfoFile != "" {

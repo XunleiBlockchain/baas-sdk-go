@@ -109,4 +109,8 @@ var (
 		Code: -1023,
 		Msg:  "rpc call err",
 	}
+	ErrRpcEstimateGas = &Error{
+		Code: -1024,
+		Msg:  "rpc EstimateGas err",
+	}
 )

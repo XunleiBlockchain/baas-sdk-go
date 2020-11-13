@@ -128,6 +128,35 @@ func getGasPrice() *Error {
 	return nil
 }
 
+func estimateGas(from, to, data string, value big.Int) (gas *big.Int, xerr *Error) {
+	params := []interface{}{
+		map[string]interface{}{
+			"from":  from,
+			"to":    to,
+			"data":  data,
+			"value": "0x" + value.Text(16),
+		},
+	}
+	authParams := []string{from, to, data}
+	reply, err := rpcCallWithAuth(Conf.Namespace+"_estimateGas", params, authParams)
+	if err != nil {
+		sdklog.Error("estimateGas error.", "err", err)
+		return new(big.Int), ErrRpcEstimateGas.Join(err)
+	}
+	var res rpcReply
+	json.Unmarshal(reply, &res)
+	sdklog.Info("estimateGas.", "params", params, "reply", string(reply))
+	if res.Result != nil {
+		gasRes, ok := new(big.Int).SetString(res.Result.(string), 0)
+		if !ok {
+			return new(big.Int), ErrRpcEstimateGas.Join(err)
+		}
+		gas = gasRes
+	}
+	xerr = &res.Err
+	return
+}
+
 func getFee() error {
 	params := []string{}
 	reply, err := rpcCall(Conf.Namespace+"_getFee", params)
@@ -412,9 +441,11 @@ func getLoop() {
 		timer.Reset(interval)
 		select {
 		case <-timer.C:
-			if Conf.GetFee {
-				getFee()
-			}
+			/*
+				if Conf.GetFee {
+					getFee()
+				}
+			*/
 			if Conf.GetGasPrice {
 				getGasPrice()
 			}

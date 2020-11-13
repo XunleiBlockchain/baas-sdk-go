@@ -70,15 +70,15 @@ func (args *SendTxArgs) setDefaults() error {
 	if args.GasPrice == nil {
 		args.GasPrice = big.NewInt(1e11)
 	}
-	if args.Gas == nil {
-		if Conf.GetFee {
-			args.Gas = calcFee(args.Value)
-		} else {
-			args.Gas = big.NewInt(100000)
-		}
-	}
 	if args.Value == nil {
 		args.Value = new(big.Int)
+	}
+	if args.Gas == nil {
+		gas, xerr := estimateGas(args.From.String(), args.To.String(), common.ToHex(args.Data), *args.Value)
+		if xerr != nil && xerr.Code != 0 {
+			return errors.New(xerr.Msg)
+		}
+		args.Gas = gas
 	}
 	if args.Nonce == nil {
 		nonce, xerr := getNonce(args.From.String())

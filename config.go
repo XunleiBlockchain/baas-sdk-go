@@ -18,7 +18,7 @@ type Config struct {
 	XHost                  string            // BaaS接入层 Host
 	Namespace              string            // 区块链名称空间 tcapi
 	ChainID                int64             // 链ID
-	GetFee                 bool              // 是否从BaaS获取fee
 	GetGasPrice            bool              // 是否从BaaS获取GasPrice
 	AuthInfo               AuthInfo          // 与BaaS通信凭证 从auth.json中解析得到
+	// GetFee              bool              // 是否从BaaS获取fee
 }
