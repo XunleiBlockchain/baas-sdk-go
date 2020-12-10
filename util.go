@@ -42,7 +42,7 @@ func strAND(s string) string {
 
 func catchInterfacePanic() {
 	if r := recover(); r != nil {
-		sdklog.Error("catchInterfacePanic")
+		sdklog.Error("catchInterfacePanic: %v", r)
 	}
 }
 

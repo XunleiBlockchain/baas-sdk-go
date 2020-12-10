@@ -18,6 +18,10 @@ func (e *Error) Join(err error) *Error {
 	return &ne
 }
 
+func (e *Error) Error() string {
+	return fmt.Sprintf("erro code: %d, msg: %v", e.Code, e.Msg)
+}
+
 var (
 	ErrSuccess = &Error{
 		Code: 0,
