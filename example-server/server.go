@@ -18,12 +18,12 @@ type request struct {
 
 // Server serve http
 type Server struct {
-	ins *sdk.SDKImpl
+	mySDK *sdk.SDKImpl
 }
 
-func newServer(ins *sdk.SDKImpl) *Server {
+func newServer(mySDK *sdk.SDKImpl) *Server {
 	return &Server{
-		ins: ins,
+		mySDK: mySDK,
 	}
 }
 
@@ -49,31 +49,31 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var xerr *sdk.Error
 	switch req.Method {
 	case "accounts":
-		ret, xerr = srv.ins.Accounts(req.Params)
+		ret, xerr = srv.mySDK.Accounts(req.Params)
 		break
 	case "newAccount":
-		ret, xerr = srv.ins.NewAccount(req.Params)
+		ret, xerr = srv.mySDK.NewAccount(req.Params)
 		break
 	case "getBalance":
-		ret, xerr = srv.ins.GetBalance(req.Params)
+		ret, xerr = srv.mySDK.GetBalance(req.Params)
 		break
 	case "getTransactionCount":
-		ret, xerr = srv.ins.GetTransactionCount(req.Params)
+		ret, xerr = srv.mySDK.GetTransactionCount(req.Params)
 		break
 	case "getTransactionByHash":
-		ret, xerr = srv.ins.GetTransactionByHash(req.Params)
+		ret, xerr = srv.mySDK.GetTransactionByHash(req.Params)
 		break
 	case "getTransactionReceipt":
-		ret, xerr = srv.ins.GetTransactionReceipt(req.Params)
+		ret, xerr = srv.mySDK.GetTransactionReceipt(req.Params)
 		break
 	case "sendTransaction":
-		ret, xerr = srv.ins.SendTransaction(req.Params)
+		ret, xerr = srv.mySDK.SendTransaction(req.Params)
 		break
 	case "sendContractTransaction":
-		ret, xerr = srv.ins.SendContractTransaction(req.Params)
+		ret, xerr = srv.mySDK.SendContractTransaction(req.Params)
 		break
 	case "call":
-		ret, xerr = srv.ins.Call(req.Params)
+		ret, xerr = srv.mySDK.Call(req.Params)
 		break
 	default:
 		xerr = sdk.ErrMethod
@@ -92,8 +92,8 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func initHTTP(ins *sdk.SDKImpl) (err error) {
-	server := newServer(ins)
+func initHTTP(mySDK *sdk.SDKImpl) (err error) {
+	server := newServer(mySDK)
 	httpServer := &http.Server{Handler: server, ReadTimeout: conf.HTTPReadTimeout, WriteTimeout: conf.HTTPWriteTimeout}
 	httpServer.SetKeepAlivesEnabled(true)
 	listener, err := net.Listen("tcp", conf.HTTPAddr)

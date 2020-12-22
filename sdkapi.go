@@ -58,7 +58,7 @@ func (sdk *SDKImpl) GetBalance(params interface{}) (interface{}, *Error) {
 	if err != nil {
 		return 0, ErrAccountFind.Join(err)
 	}
-	return getBalance(addr)
+	return sdk.c.getBalance(addr)
 }
 
 func (sdk *SDKImpl) GetTransactionCount(params interface{}) (interface{}, *Error) {
@@ -73,7 +73,7 @@ func (sdk *SDKImpl) GetTransactionCount(params interface{}) (interface{}, *Error
 	if err != nil {
 		return 0, ErrAccountFind.Join(err)
 	}
-	return getNonce(addr)
+	return sdk.c.getNonce(addr)
 }
 
 func (sdk *SDKImpl) GetTransactionByHash(params interface{}) (interface{}, *Error) {
@@ -89,7 +89,7 @@ func (sdk *SDKImpl) GetTransactionByHash(params interface{}) (interface{}, *Erro
 		return 0, ErrAccountFind.Join(err)
 	}
 	hash := args[1].(string)
-	return getTransactionByHash(from, hash)
+	return sdk.c.getTransactionByHash(from, hash)
 }
 
 func (sdk *SDKImpl) GetTransactionReceipt(params interface{}) (interface{}, *Error) {
@@ -105,7 +105,7 @@ func (sdk *SDKImpl) GetTransactionReceipt(params interface{}) (interface{}, *Err
 		return 0, ErrAccountFind.Join(err)
 	}
 	hash := args[1].(string)
-	return getTransactionReceipt(from, hash)
+	return sdk.c.getTransactionReceipt(from, hash)
 }
 
 func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
@@ -119,6 +119,9 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 	if err != nil {
 		return common.Hash{}, ErrSendTxArgs.Join(err)
 	}
+	if sdk.cfg.GetGasPrice {
+		sendTxArgs.GasPrice = sdk.gasPrice
+	}
 	account := accounts.Account{Address: sendTxArgs.From}
 	wallet, err := sdk.am.Find(account)
 	if err != nil {
@@ -128,7 +131,7 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 		sdk.nonceLock.lockAddr(sendTxArgs.From)
 		defer sdk.nonceLock.unlockAddr(sendTxArgs.From)
 	}
-	if err = sendTxArgs.setDefaults(); err != nil {
+	if err = sendTxArgs.setDefaults(sdk.c); err != nil {
 		return common.Hash{}, ErrSendTxArgs.Join(err)
 	}
 	tx := sendTxArgs.toTransaction()
@@ -138,7 +141,7 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 	}
 	// send transaction without password
 	if len(args) == 1 {
-		signed, err := wallet.SignTx(account, stx, gSDK.signParam)
+		signed, err := wallet.SignTx(account, stx, sdk.signParam)
 		debug.FreeOSMemory()
 		if err != nil {
 			return common.Hash{}, ErrSDKSignTx.Join(err)
@@ -148,7 +151,7 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 			sdklog.Error("SendTransaction bal.EncodeToBytes()", "err", err)
 			return common.Hash{}, ErrBalEncodeToBytes.Join(err)
 		}
-		res, xerr := sendTransaction(common.ToHex(txbal))
+		res, xerr := sdk.c.sendTransaction(common.ToHex(txbal))
 		if xerr.Code != 0 {
 			res = common.Hash{}
 		}
@@ -157,7 +160,7 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 	}
 	// send transaction with password
 	passwd := args[1].(string)
-	signed, err := wallet.SignTxWithPassphrase(account, passwd, stx, gSDK.signParam)
+	signed, err := wallet.SignTxWithPassphrase(account, passwd, stx, sdk.signParam)
 	debug.FreeOSMemory()
 	if err != nil {
 		return common.Hash{}, ErrSDKSignTxWithPassphrase.Join(err)
@@ -167,7 +170,7 @@ func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {
 		sdklog.Error("SendTransaction bal.EncodeToBytes()", "err", err)
 		return common.Hash{}, ErrBalEncodeToBytes.Join(err)
 	}
-	res, xerr := sendTransaction(common.ToHex(txbal))
+	res, xerr := sdk.c.sendTransaction(common.ToHex(txbal))
 	if xerr.Code != 0 {
 		res = common.Hash{}
 	}
@@ -186,6 +189,9 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 	if err != nil {
 		return common.Hash{}, ErrSendTxArgs.Join(err)
 	}
+	if sdk.cfg.GetGasPrice {
+		sendTxArgs.GasPrice = sdk.gasPrice
+	}
 	account := accounts.Account{Address: sendTxArgs.From}
 	wallet, err := sdk.am.Find(account)
 	if err != nil {
@@ -195,7 +201,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 		sdk.nonceLock.lockAddr(sendTxArgs.From)
 		defer sdk.nonceLock.unlockAddr(sendTxArgs.From)
 	}
-	if err = sendTxArgs.setDefaults(); err != nil {
+	if err = sendTxArgs.setDefaults(sdk.c); err != nil {
 		return common.Hash{}, ErrSendTxArgs.Join(err)
 	}
 	tx := sendTxArgs.toContractTransaction()
@@ -208,7 +214,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 	//send contract transaction without password
 	switch len(args) {
 	case 1:
-		signed, err := wallet.SignTx(account, stx, gSDK.signParam)
+		signed, err := wallet.SignTx(account, stx, sdk.signParam)
 		debug.FreeOSMemory()
 		if err != nil {
 			return common.Hash{}, ErrSDKSignTx.Join(err)
@@ -218,7 +224,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 			sdklog.Error("SendContractTransaction bal.EncodeToBytes()", "err", err)
 			return common.Hash{}, ErrBalEncodeToBytes.Join(err)
 		}
-		res, xerr := sendTransaction(common.ToHex(txbal))
+		res, xerr := sdk.c.sendTransaction(common.ToHex(txbal))
 		if xerr.Code != 0 {
 			res = common.Hash{}
 		}
@@ -228,7 +234,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 		if err != nil {
 			return common.Hash{}, ErrContractExtension.Join(err)
 		}
-		signed, err := wallet.SignTx(account, stx, gSDK.signParam)
+		signed, err := wallet.SignTx(account, stx, sdk.signParam)
 		debug.FreeOSMemory()
 		if err != nil {
 			return common.Hash{}, ErrSDKSignTx.Join(err)
@@ -238,7 +244,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 			sdklog.Error("SendContractTransaction bal.EncodeToBytes()", "err", err)
 			return common.Hash{}, ErrBalEncodeToBytes.Join(err)
 		}
-		res, xerr := sendContractTransaction(common.ToHex(txbal), contractArgs)
+		res, xerr := sdk.c.sendContractTransaction(common.ToHex(txbal), contractArgs)
 		if xerr.Code != 0 {
 			res = common.Hash{}
 		}
@@ -250,7 +256,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 		if err != nil {
 			return common.Hash{}, ErrContractExtension.Join(err)
 		}
-		signed, err := wallet.SignTxWithPassphrase(account, passwd, stx, gSDK.signParam)
+		signed, err := wallet.SignTxWithPassphrase(account, passwd, stx, sdk.signParam)
 		debug.FreeOSMemory()
 		if err != nil {
 			return common.Hash{}, ErrSDKSignTxWithPassphrase.Join(err)
@@ -260,7 +266,7 @@ func (sdk *SDKImpl) SendContractTransaction(params interface{}) (interface{}, *E
 			sdklog.Error("SendContractTransaction bal.EncodeToBytes()", "err", err)
 			return common.Hash{}, ErrBalEncodeToBytes.Join(err)
 		}
-		res, xerr := sendContractTransaction(common.ToHex(txbal), contractArgs)
+		res, xerr := sdk.c.sendContractTransaction(common.ToHex(txbal), contractArgs)
 		if xerr.Code != 0 {
 			res = common.Hash{}
 		}
@@ -286,5 +292,5 @@ func (sdk *SDKImpl) Call(params interface{}) (interface{}, *Error) {
 	if err != nil {
 		return nil, ErrAccountFind.Join(err)
 	}
-	return call(callArgs.From, callArgs.To, callArgs.Data)
+	return sdk.c.call(callArgs.From, callArgs.To, callArgs.Data)
 }

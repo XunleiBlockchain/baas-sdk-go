@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 )
@@ -25,6 +26,11 @@ var (
 		Transport: gTransport,
 	}
 )
+
+// ------------------------------ inner ------------------------------
+func dialTimeout(network, addr string) (net.Conn, error) {
+	return net.DialTimeout(network, addr, time.Second*15)
+}
 
 // ------------------------------ http cli ------------------------------
 func httpGetWithLongConn(url string) ([]byte, error) {

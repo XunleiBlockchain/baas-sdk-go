@@ -28,66 +28,67 @@ func init() {
 func main() {
 	flag.Parse()
 	// 1. init serverConfig and sdk.Config
-	if err := initServerConfig(); err != nil {
+	sdkConf, err := initServerConfig()
+	if err != nil {
 		panic(err)
 	}
 
 	// 2. init logger
 	logger = log.Sugar()
 
-	// 3. get sdk instance
-	ins := sdk.GetSDK(logger)
+	// 3. new sdk
+	mySDK, err := sdk.NewSDK(sdkConf, logger)
+	if err != nil {
+		panic(err)
+	}
 
 	// 4. start HTTPServer
 	logger.Info("sdk-server start.")
-	if err := initHTTP(ins); err != nil {
+	if err := initHTTP(mySDK); err != nil {
 		panic(err)
 	}
 
 	select {}
 }
 
-func initServerConfig() (err error) {
+func initServerConfig() (*sdk.Config, error) {
 	// 1. parse serverConfig
 	conf = newServerConfig()
 	gconf := goconf.New()
-	if err = gconf.Parse(confFile); err != nil {
-		return err
+	if err := gconf.Parse(confFile); err != nil {
+		return nil, err
 	}
 	if err := gconf.Unmarshal(conf); err != nil {
-		return err
+		return nil, err
 	}
-	// 2. init sdk.Config
+	// 2. new sdk.Config
 	sdkConf := &sdk.Config{
-		Keystore:               conf.Keystore,
-		UnlockAccounts:         make(map[string]string),
-		DNSCacheUpdateInterval: conf.DNSCacheUpdateInterval,
-		RPCProtocal:            conf.RPCProtocal,
-		XHost:                  conf.XHost,
-		Namespace:              conf.Namespace,
-		ChainID:                conf.ChainID,
-		GetGasPrice:            conf.GetGasPrice,
+		Keystore:       conf.Keystore,
+		UnlockAccounts: make(map[string]string),
+		XHost:          conf.XHost,
+		Namespace:      conf.Namespace,
+		ChainID:        conf.ChainID,
+		GetGasPrice:    conf.GetGasPrice,
 	}
 	if authInfoFile != "" {
 		authInfoJSON, err := ioutil.ReadFile(authInfoFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = json.Unmarshal(authInfoJSON, &sdkConf.AuthInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if passwdFile != "" {
 		passwdsJSON, err := ioutil.ReadFile(passwdFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = json.Unmarshal(passwdsJSON, &sdkConf.UnlockAccounts)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	sdk.Conf = sdkConf
-	return nil
+	return sdkConf, nil
 }

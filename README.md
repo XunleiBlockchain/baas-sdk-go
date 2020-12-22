@@ -46,17 +46,15 @@ type AuthInfo struct {
 type Config struct {
 	Keystore               string            // Keystore目录 保存用户账户秘钥
 	UnlockAccounts         map[string]string
-	DNSCacheUpdateInterval int               // BaaS接入层 DNS刷新周期 单位：秒
 	RPCProtocal            string            // BaaS接入层 协议
 	XHost                  string            // BaaS接入层 Host
 	Namespace              string            // 区块链名称空间 tcapi
 	ChainID                int64             // 链ID
-	GetFee                 bool              // 是否从BaaS获取fee
 	GetGasPrice            bool              // 是否从BaaS获取GasPrice
 	AuthInfo               AuthInfo
 }
 ```
-开发者需构造SDK包内的Config类型，填充其信息并将包内的全局Config指向构造的Config。
+开发者需构造SDK包内的Config类型，填充其信息并将构造的Config作为入参构造SDK。
 需要注意的是，`UnlockAccounts` 和 `AuthInfo` 需开发者自行解析。
 构造过程如本目录下的Server示例所示：
 ```go
@@ -64,12 +62,10 @@ type Config struct {
   sdkConf := &sdk.Config{
     Keystore:               conf.Keystore,
     UnlockAccounts:         make(map[string]string),
-    DNSCacheUpdateInterval: conf.DNSCacheUpdateInterval,
     RPCProtocal:            conf.RPCProtocal,
     XHost:                  conf.XHost,
     Namespace:              conf.Namespace,
     ChainID:                conf.ChainID,
-    GetFee:                 conf.GetFee,
     GetGasPrice:            conf.GetGasPrice,
   }
   // 2. 解析得到 AuthInfo
@@ -78,29 +74,19 @@ type Config struct {
   // 3. 解析得到 UnlockAccounts
   passwdsJSON, err := ioutil.ReadFile(passwdFile)
   err = json.Unmarshal(passwdsJSON, &sdkConf.UnlockAccounts)
-  // 4. SDK全局Config 指向这里构造的sdkConf
-  sdk.Conf = sdkConf
+  // 4. 返回构造的sdkConf
+  return sdkConf
 ```
 
 ### 3.2 获取SDK实例
 
-SDK实现了所有与BaaS交互的必要接口，并以单例模式提供方法调用。
+SDK实现了所有与BaaS交互的必要接口。
 
-需要注意的是，获取SDK实例时需传入满足 `sdk.Logger` 接口的log实现，该log将在SDK内部提供日志功能。
+需要注意的是，获取SDK实例时需传入 `Config` 和满足 `sdk.Logger` 接口的log实现，该log将在SDK内部提供日志功能。
 
 开发者可以通过调用以下接口`获取`和`释放`SDK资源：
 ```go
-func GetSDK(log Logger) *SDKImpl {
-  setLogger(log)
-  if gSDK == nil {
-    newSDK()
-  }
-  return gSDK
-}
-
-func ReleaseSDK() {
-  gSDK = nil
-}
+func NewSDK(cfg *Config, log Logger) (*SDKImpl, error)
 ```
 
 随后即可通过调用该实例的方法进行指向BaaS的接口调用：
@@ -111,14 +97,18 @@ import(
 
 func foobar() {
   // ------- INIT -------
-  // 1. init log
+  // 1. get sdk Config
+  sdkConf := &sdk.Config{
+    ...
+  }
+  // 2. init log
   logger := log.NewLogger()
-  // 2. init sdk
-  sdkInstance := sdk.GetSDK(logger)
+  // 3. init sdk
+  mySDK := sdk.NewSDK(sdkConf, logger)
 
   // ------- USE -------
   // encode params
-  resp, xerr := sdkInstance.GetBalance(params...)
+  resp, xerr := mySDK.GetBalance(params...)
   if xerr != nil || xerr.Code != 0 {
     // handle error
   }
