@@ -55,6 +55,7 @@ func NewSDK(cfg *Config, log Logger) (*SDKImpl, error) {
 	}
 	// 4. get SDKImpl
 	sdk := &SDKImpl{
+		cfg:       cfg,
 		signParam: big.NewInt(0).SetBytes([]byte(fmt.Sprintf("%d", chainID))),
 		am:        am,
 		nonceLock: &addrLocker{},
