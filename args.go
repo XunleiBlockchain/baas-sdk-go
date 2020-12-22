@@ -38,15 +38,12 @@ func (args *SendTxArgs) parseFromArgs(params interface{}) (err error) {
 			return errors.New("gas err.")
 		}
 	}
-	/*
-		if gasPrice, ok := txArgs["gasPrice"]; ok {
-			args.GasPrice, succ = new(big.Int).SetString(gasPrice.(string), 0)
-			if !succ {
-				return errors.New("gasPrice err.")
-			}
+	if gasPrice, ok := txArgs["gasPrice"]; ok {
+		args.GasPrice, succ = new(big.Int).SetString(gasPrice.(string), 0)
+		if !succ {
+			return errors.New("gasPrice err.")
 		}
-	*/
-	args.GasPrice = gGasPrice
+	}
 	if value, ok := txArgs["value"]; ok {
 		args.Value, succ = new(big.Int).SetString(value.(string), 0)
 		if !succ {
@@ -66,7 +63,7 @@ func (args *SendTxArgs) parseFromArgs(params interface{}) (err error) {
 	return nil
 }
 
-func (args *SendTxArgs) setDefaults() error {
+func (args *SendTxArgs) setDefaults(c *client) error {
 	if args.GasPrice == nil {
 		args.GasPrice = big.NewInt(1e11)
 	}
@@ -74,14 +71,14 @@ func (args *SendTxArgs) setDefaults() error {
 		args.Value = new(big.Int)
 	}
 	if args.Gas == nil {
-		gas, xerr := estimateGas(args.From.String(), args.To.String(), common.ToHex(args.Data), *args.Value)
+		gas, xerr := c.estimateGas(args.From.String(), args.To.String(), common.ToHex(args.Data), *args.Value)
 		if xerr != nil && xerr.Code != 0 {
 			return errors.New(xerr.Msg)
 		}
 		args.Gas = gas
 	}
 	if args.Nonce == nil {
-		nonce, xerr := getNonce(args.From.String())
+		nonce, xerr := c.getNonce(args.From.String())
 		if xerr != nil && xerr.Code != 0 {
 			return errors.New(xerr.Msg)
 		}

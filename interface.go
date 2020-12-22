@@ -13,4 +13,4 @@ type SDK interface {
 	Call(params interface{}) (interface{}, *Error)
 }
 
-var _ SDK = gSDK
+var _ SDK = &SDKImpl{}

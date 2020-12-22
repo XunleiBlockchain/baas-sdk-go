@@ -35,7 +35,6 @@ http.write.timeout      10s                 // http服务写超时时间
 
 # SDK配置部分：
 xhost                   rpc-baas-blockchain.xunlei.com // BaaS接入层 Host
-dnscache.updateinterval 300                            // BaaS接入层 DNS刷新周期 单位：秒
 rpc.protocal            https                          // BaaS接入层 http协议
 chain_id                30261                          // 链ID
 keystore                ./keystore                     // 私钥存储文件

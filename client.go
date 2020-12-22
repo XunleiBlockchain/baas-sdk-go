@@ -6,62 +6,67 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"net"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var (
-	gGasPrice    *big.Int
-	maxFee       *big.Int
-	minFee       *big.Int
-	feeRate      int
-	defaultRetry = 2
-	xhost        = "rpc-baas-blockchain.xunlei.com"
+	defaultRetry    = 2
+	defaultProtocal = "https"
+	defaultXHost    = "rpc-baas-blockchain.xunlei.com"
+	defaultNS       = "tcapi"
 )
 
-func initClient() {
-	// 1. init client xhost
-	if len(Conf.XHost) > 0 {
-		xhost = Conf.XHost
-	}
-	// 2. init sdk chainID by client query
-	if Conf.AuthInfo.ChainID == "" || Conf.AuthInfo.ID == "" || Conf.AuthInfo.Key == "" {
-		return
-	}
-	chainID, err := getChainID()
-	if err != nil {
-		panic(err)
-	}
-	Conf.ChainID = chainID
-	// 3. init loop
-	go getLoop()
+type client struct {
+	retry     int
+	protocal  string
+	xHost     string
+	nameSpace string
+
+	auth *AuthInfo
 }
 
+func defaultClient() *client {
+	return &client{
+		retry:     defaultRetry,
+		protocal:  defaultProtocal,
+		xHost:     defaultXHost,
+		nameSpace: defaultNS,
+	}
+}
+
+func newClient(cfg *Config) (*client, error) {
+	if cfg.AuthInfo.ChainID == "" || cfg.AuthInfo.ID == "" || cfg.AuthInfo.Key == "" {
+		return nil, fmt.Errorf("newClient: AuthInfo empty")
+	}
+	cli := defaultClient()
+	if cfg.Retry > 0 {
+		cli.retry = cfg.Retry
+	}
+	if len(cfg.RPCProtocal) > 0 {
+		cli.protocal = cfg.RPCProtocal
+	}
+	if len(cfg.XHost) > 0 {
+		cli.xHost = cfg.XHost
+	}
+	if len(cfg.Namespace) > 0 {
+		cli.nameSpace = cfg.Namespace
+	}
+	cli.auth = &cfg.AuthInfo
+	return cli, nil
+}
+
+// ------------------------------- blockchain api -------------------------------
 type rpcReply struct {
-	Id      uint64      `json:"id"`
+	ID      uint64      `json:"id"`
 	Jsonrpc string      `json:"jsonrpc"`
 	Result  interface{} `json:"result"`
 	Err     Error       `json:"error"`
 }
 
-type feeParms struct {
-	Min  string `json:"min"`
-	Max  string `json:"max"`
-	Rate int    `json:"rate"`
-}
-
-type getFeeReply struct {
-	Id      uint64   `json:"id"`
-	Jsonrpc string   `json:"jsonrpc"`
-	Result  feeParms `json:"result"`
-	Err     Error    `json:"error"`
-}
-
-func getNonce(addr string) (nonce uint64, xerr *Error) {
+func (c *client) getNonce(addr string) (nonce uint64, xerr *Error) {
 	params := []string{addr, "pending"}
-	reply, err := rpcCall(Conf.Namespace+"_getTransactionCount", params)
+	reply, err := c.rpcCall(c.nameSpace+"_getTransactionCount", params)
 	if err != nil {
 		sdklog.Error("getTransactionCount error.", "err", err)
 		return 0, ErrRpcGetNonce.Join(err)
@@ -79,9 +84,9 @@ func getNonce(addr string) (nonce uint64, xerr *Error) {
 	return
 }
 
-func getBalance(addr string) (balance interface{}, xerr *Error) {
+func (c *client) getBalance(addr string) (balance interface{}, xerr *Error) {
 	params := []string{addr, "latest"}
-	reply, err := rpcCall(Conf.Namespace+"_getBalance", params)
+	reply, err := c.rpcCall(c.nameSpace+"_getBalance", params)
 	if err != nil {
 		sdklog.Error("getBalance error.", "err", err)
 		return nil, ErrRpcGetBalance.Join(err)
@@ -102,33 +107,34 @@ func getBalance(addr string) (balance interface{}, xerr *Error) {
 	return
 }
 
-func getGasPrice() *Error {
+func (c *client) getGasPrice() (gasPrice *big.Int, xerr *Error) {
 	params := []string{}
-	reply, err := rpcCall(Conf.Namespace+"_gasPrice", params)
+	reply, err := c.rpcCall(c.nameSpace+"_gasPrice", params)
 	if err != nil {
 		sdklog.Error("gasPrice error.", "err", err)
-		return ErrRpcGetGasPrice.Join(err)
+		return nil, ErrRpcGetGasPrice.Join(err)
 	}
 	var res rpcReply
 	json.Unmarshal(reply, &res)
 	sdklog.Info("gasPrice.", "params", params, "reply", string(reply))
 	if res.Result != nil {
 		if ret, ok := res.Result.(float64); ok {
-			gGasPrice = new(big.Int).SetInt64(int64(ret))
+			gasPrice = new(big.Int).SetInt64(int64(ret))
 		} else {
 			var suc bool
-			gGasPrice, suc = new(big.Int).SetString(res.Result.(string), 0)
+			gasPrice, suc = new(big.Int).SetString(res.Result.(string), 0)
 			if !suc {
-				return ErrRpcGetGasPrice.Join(fmt.Errorf("getGasPrice SetString failed."))
+				return nil, ErrRpcGetGasPrice.Join(fmt.Errorf("getGasPrice SetString failed."))
 			}
 		}
-	} else {
-		sdklog.Error("res.Result nil")
+		return gasPrice, nil
 	}
-	return nil
+	sdklog.Error("res.Result nil")
+	xerr = &res.Err
+	return
 }
 
-func estimateGas(from, to, data string, value big.Int) (gas *big.Int, xerr *Error) {
+func (c *client) estimateGas(from, to, data string, value big.Int) (gas *big.Int, xerr *Error) {
 	params := []interface{}{
 		map[string]interface{}{
 			"from":  from,
@@ -138,7 +144,7 @@ func estimateGas(from, to, data string, value big.Int) (gas *big.Int, xerr *Erro
 		},
 	}
 	authParams := []string{from, to, data}
-	reply, err := rpcCallWithAuth(Conf.Namespace+"_estimateGas", params, authParams)
+	reply, err := c.rpcCallWithAuth(c.nameSpace+"_estimateGas", params, authParams)
 	if err != nil {
 		sdklog.Error("estimateGas error.", "err", err)
 		return new(big.Int), ErrRpcEstimateGas.Join(err)
@@ -157,28 +163,9 @@ func estimateGas(from, to, data string, value big.Int) (gas *big.Int, xerr *Erro
 	return
 }
 
-func getFee() error {
-	params := []string{}
-	reply, err := rpcCall(Conf.Namespace+"_getFee", params)
-	if err != nil {
-		sdklog.Error("getFee error.", "err", err)
-		return err
-	}
-	var res getFeeReply
-	json.Unmarshal(reply, &res)
-	sdklog.Info("getFee.", "params", params, "reply", string(reply))
-	rlt := res.Result
-	minFee, _ = new(big.Int).SetString(rlt.Min, 0)
-	minFee.Div(minFee, big.NewInt(1e11))
-	maxFee, _ = new(big.Int).SetString(rlt.Max, 0)
-	maxFee.Div(maxFee, big.NewInt(1e11))
-	feeRate = rlt.Rate
-	return nil
-}
-
-func getTransactionByHash(from, hash string) (receipt interface{}, xerr *Error) {
+func (c *client) getTransactionByHash(from, hash string) (receipt interface{}, xerr *Error) {
 	params := []string{hash}
-	reply, err := rpcCallWithFrom(Conf.Namespace+"_getTransactionByHash", params, from)
+	reply, err := c.rpcCallWithFrom(c.nameSpace+"_getTransactionByHash", params, from)
 	if err != nil {
 		sdklog.Error("getTransactionByHash error.", "err", err)
 		return nil, ErrRpcGetTransactionByHash.Join(err)
@@ -189,9 +176,9 @@ func getTransactionByHash(from, hash string) (receipt interface{}, xerr *Error) 
 	return res.Result, &res.Err
 }
 
-func getTransactionReceipt(from, hash string) (receipt interface{}, xerr *Error) {
+func (c *client) getTransactionReceipt(from, hash string) (receipt interface{}, xerr *Error) {
 	params := []string{hash}
-	reply, err := rpcCallWithFrom(Conf.Namespace+"_getTransactionReceipt", params, from)
+	reply, err := c.rpcCallWithFrom(c.nameSpace+"_getTransactionReceipt", params, from)
 	if err != nil {
 		sdklog.Error("getTransactionReceipt error.", "err", err)
 		return nil, ErrRpcGetTransactionReceipt.Join(err)
@@ -202,9 +189,9 @@ func getTransactionReceipt(from, hash string) (receipt interface{}, xerr *Error)
 	return res.Result, &res.Err
 }
 
-func sendTransaction(raw string) (interface{}, *Error) {
+func (c *client) sendTransaction(raw string) (interface{}, *Error) {
 	params := []string{raw}
-	reply, err := rpcCall(Conf.Namespace+"_sendRawTransaction", params)
+	reply, err := c.rpcCall(c.nameSpace+"_sendRawTransaction", params)
 	if err != nil {
 		sdklog.Error("sendRawTransaction error.", "err", err)
 		return "", ErrRpcSendTransaction.Join(err)
@@ -215,9 +202,9 @@ func sendTransaction(raw string) (interface{}, *Error) {
 	return res.Result, &res.Err
 }
 
-func sendContractTransaction(raw string, ext interface{}) (interface{}, *Error) {
+func (c *client) sendContractTransaction(raw string, ext interface{}) (interface{}, *Error) {
 	params := []string{raw}
-	reply, err := rpcCallWithExtension(Conf.Namespace+"_sendRawTransaction", params, ext)
+	reply, err := c.rpcCallWithExtension(c.nameSpace+"_sendRawTransaction", params, ext)
 	if err != nil {
 		sdklog.Error("sendContractTransaction error.", "err", err)
 		return "", ErrRpcSendContractTransaction.Join(err)
@@ -228,18 +215,35 @@ func sendContractTransaction(raw string, ext interface{}) (interface{}, *Error) 
 	return res.Result, &res.Err
 }
 
+func (c *client) call(from, to, payload string) (interface{}, *Error) {
+	params := []interface{}{
+		map[string]string{
+			"from": from,
+			"to":   to,
+			"data": payload,
+		},
+		"latest",
+	}
+	authParams := []string{from, to, payload}
+	reply, err := c.rpcCallWithAuth(c.nameSpace+"_call", params, authParams)
+	if err != nil {
+		return "", ErrCall.Join(err)
+	}
+	var res rpcReply
+	json.Unmarshal(reply, &res)
+	return res.Result, &res.Err
+}
+
 // ------------------------------- inner call -------------------------------
-func doRpcCallWithRetry(retry int, api string, from string, data []byte) (body []byte, err error) {
-	for cnt := 0; cnt < retry; cnt++ {
-		host := getDNSHost()
-		url := fmt.Sprintf("%s/%s", host, api)
+func (c *client) doRPCCallWithRetry(api string, from string, data []byte) (body []byte, err error) {
+	for cnt := 0; cnt < c.retry; cnt++ {
+		url := fmt.Sprintf("%s://%s/%s", c.protocal, c.xHost, api)
 		if len(from) != 0 {
 			url += fmt.Sprintf("?from=%s", from)
 		}
-		body, err = httpPostWithLongConn(url, xhost, "application/json", data)
+		body, err = httpPostWithLongConn(url, c.xHost, "application/json", data)
 		if err != nil {
 			sdklog.Error("rpc call", "err", err)
-			updateDNSHost()
 			continue
 		}
 		break
@@ -247,13 +251,13 @@ func doRpcCallWithRetry(retry int, api string, from string, data []byte) (body [
 	return
 }
 
-func rpcCall(method string, params []string) (body []byte, err error) {
+func (c *client) rpcCall(method string, params []string) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
 	rpcParams["params"] = params
 	rpcParams["id"] = 1
-	if auth := genRpcAuth(params, Conf.AuthInfo); auth != nil {
+	if auth := genRpcAuth(params, *c.auth); auth != nil {
 		rpcParams["auth"] = auth
 	}
 	data, err := json.Marshal(rpcParams)
@@ -262,17 +266,17 @@ func rpcCall(method string, params []string) (body []byte, err error) {
 	}
 	strSlice := strings.Split(method, "_")
 	sdklog.Info("rpcCall", "data(params)", data)
-	return doRpcCallWithRetry(defaultRetry, strSlice[1], "", data)
+	return c.doRPCCallWithRetry(strSlice[1], "", data)
 }
 
-func rpcCallWithExtension(method string, params []string, ext interface{}) (body []byte, err error) {
+func (c *client) rpcCallWithExtension(method string, params []string, ext interface{}) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
 	rpcParams["params"] = params
 	rpcParams["extension"] = ext
 	rpcParams["id"] = 1
-	if auth := genRpcAuth(params, Conf.AuthInfo); auth != nil {
+	if auth := genRpcAuth(params, *c.auth); auth != nil {
 		rpcParams["auth"] = auth
 	}
 	data, err := json.Marshal(rpcParams)
@@ -281,16 +285,16 @@ func rpcCallWithExtension(method string, params []string, ext interface{}) (body
 	}
 	strSlice := strings.Split(method, "_")
 	sdklog.Info("rpcCallWithExtension", "data(params)", data)
-	return doRpcCallWithRetry(defaultRetry, strSlice[1], "", data)
+	return c.doRPCCallWithRetry(strSlice[1], "", data)
 }
 
-func rpcCallWithFrom(method string, params []string, from string) (body []byte, err error) {
+func (c *client) rpcCallWithFrom(method string, params []string, from string) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
 	rpcParams["params"] = params
 	rpcParams["id"] = 1
-	if auth := genRpcAuth(params, Conf.AuthInfo); auth != nil {
+	if auth := genRpcAuth(params, *c.auth); auth != nil {
 		rpcParams["auth"] = auth
 	}
 	data, err := json.Marshal(rpcParams)
@@ -299,7 +303,50 @@ func rpcCallWithFrom(method string, params []string, from string) (body []byte, 
 	}
 	strSlice := strings.Split(method, "_")
 	sdklog.Info("rpcCallWithFrom", "data(params)", data)
-	return doRpcCallWithRetry(defaultRetry, strSlice[1], from, data)
+	return c.doRPCCallWithRetry(strSlice[1], from, data)
+}
+
+func (c *client) rpcCallWithAuth(method string, params interface{}, authParams []string) (body []byte, err error) {
+	rpcParams := make(map[string]interface{})
+	rpcParams["jsonrpc"] = "2.0"
+	rpcParams["method"] = method
+	rpcParams["params"] = params
+	rpcParams["id"] = 1
+	if auth := genRpcAuth(authParams, *c.auth); auth != nil {
+		rpcParams["auth"] = auth
+	}
+	data, err := json.Marshal(rpcParams)
+	if err != nil {
+		return nil, err
+	}
+	strSlice := strings.Split(method, "_")
+	sdklog.Info("rpcCallWithAuth", "data(params)", data)
+	return c.doRPCCallWithRetry(strSlice[1], "", data)
+}
+
+// ------------------------------ getChainID ------------------------------
+type ChainIDData struct {
+	ChainID int64 `json:"chainid"`
+}
+
+type ChainIDReply struct {
+	Code uint64      `json:"code"`
+	Msg  string      `json:"msg"`
+	Data ChainIDData `json:"data"`
+}
+
+func (c *client) getChainID() (int64, error) {
+	params := []string{}
+	reply, err := c.rpcCall(c.nameSpace+"_getBaasSdkConf", params)
+	if err != nil {
+		return 0, err
+	}
+	var res ChainIDReply
+	json.Unmarshal(reply, &res)
+	if res.Code != 0 {
+		return 0, fmt.Errorf("errcode: %d errmsg: %s", res.Code, res.Msg)
+	}
+	return res.Data.ChainID, nil
 }
 
 // ------------------------------- auth -------------------------------
@@ -328,127 +375,5 @@ func genRpcAuth(params []string, authInfo AuthInfo) *rpcAuth {
 		ID:      authInfo.ID,
 		Rand:    rand,
 		Sign:    md5sum,
-	}
-}
-
-func call(from, to, payload string) (interface{}, *Error) {
-	params := []interface{}{
-		map[string]string{
-			"from": from,
-			"to":   to,
-			"data": payload,
-		},
-		"latest",
-	}
-	authParams := []string{from, to, payload}
-	reply, err := rpcCallWithAuth(Conf.Namespace+"_call", params, authParams)
-	if err != nil {
-		return "", ErrCall.Join(err)
-	}
-	var res rpcReply
-	json.Unmarshal(reply, &res)
-	return res.Result, &res.Err
-}
-
-func rpcCallWithAuth(method string, params interface{}, authParams []string) (body []byte, err error) {
-	rpcParams := make(map[string]interface{})
-	rpcParams["jsonrpc"] = "2.0"
-	rpcParams["method"] = method
-	rpcParams["params"] = params
-	rpcParams["id"] = 1
-	if auth := genRpcAuth(authParams, Conf.AuthInfo); auth != nil {
-		rpcParams["auth"] = auth
-	}
-	data, err := json.Marshal(rpcParams)
-	if err != nil {
-		return nil, err
-	}
-	strSlice := strings.Split(method, "_")
-	sdklog.Info("rpcCallWithAuth", "data(params)", data)
-	return doRpcCallWithRetry(defaultRetry, strSlice[1], "", data)
-}
-
-// ------------------------------ inner ------------------------------
-func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, time.Second*15)
-}
-
-func calcFee(Amount *big.Int) *big.Int {
-	sdklog.Error("calcFee start", "max", maxFee, "min", minFee, "rate", feeRate)
-	var fee big.Int
-	var amount big.Int
-	amount.Set(Amount)
-	mod := new(big.Int)
-	price := big.NewInt(1e18)
-	z, m := amount.DivMod(&amount, price, mod)
-	if m.Cmp(big.NewInt(0)) != 0 {
-		fee.Set(z.Add(z, big.NewInt(1)).Mul(z, big.NewInt(int64(feeRate))).Mul(z, big.NewInt(1e2)))
-	} else {
-		fee.Set(z.Mul(z, big.NewInt(int64(feeRate))).Mul(z, big.NewInt(1e2)))
-	}
-	sdklog.Error("calcFee", "get-fee1", fee)
-	if fee.Cmp(minFee) < 0 {
-		fee.Set(minFee)
-		sdklog.Error("calcFee get less then", "min", minFee, "set-fee", fee)
-	}
-	if maxFee.Cmp(big.NewInt(0)) != 0 && fee.Cmp(maxFee) > 0 {
-		fee.Set(maxFee)
-		sdklog.Error("calcFee get more then", "max", maxFee, "set-fee", fee)
-	}
-	sdklog.Error("calcFee end", "fee", fee)
-	return &fee
-}
-
-// ------------------------------ getChainID ------------------------------
-type ChainIDData struct {
-	ChainID int64 `json:"chainid"`
-}
-
-type ChainIDReply struct {
-	Code uint64      `json:"code"`
-	Msg  string      `json:"msg"`
-	Data ChainIDData `json:"data"`
-}
-
-func getChainID() (int64, error) {
-	params := []string{}
-	reply, err := rpcCall(Conf.Namespace+"_getBaasSdkConf", params)
-	if err != nil {
-		return 0, err
-	}
-	var res ChainIDReply
-	json.Unmarshal(reply, &res)
-	if res.Code != 0 {
-		return 0, fmt.Errorf("errcode: %d errmsg: %s", res.Code, res.Msg)
-	}
-	return res.Data.ChainID, nil
-}
-
-// ------------------------------ loop ------------------------------
-
-func getLoop() {
-	interval := 30 * time.Second
-	timer := time.NewTimer(interval)
-	defer timer.Stop()
-	for {
-		// timer may be not active, and fired
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timer.Reset(interval)
-		select {
-		case <-timer.C:
-			/*
-				if Conf.GetFee {
-					getFee()
-				}
-			*/
-			if Conf.GetGasPrice {
-				getGasPrice()
-			}
-		}
 	}
 }

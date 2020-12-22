@@ -10,14 +10,12 @@ type serverConfig struct {
 	HTTPReadTimeout  time.Duration `goconf:"base:http.read.timeout:time"`
 	HTTPWriteTimeout time.Duration `goconf:"base:http.write.timeout:time"`
 	// for sdk:
-	Keystore               string `goconf:"base:keystore"`
-	DNSCacheUpdateInterval int    `goconf:"base:dnscache.updateinterval"`
-	RPCProtocal            string `goconf:"base:rpc.protocal"`
-	XHost                  string `goconf:"base:xhost"`
-	ChainID                int64  `goconf:"base:chain_id"`
-	GetFee                 bool   `goconf:"base:getfee"`
-	GetGasPrice            bool   `goconf:"base:getgasprice"`
-	Namespace              string `goconf:"base:namespace"`
+	Keystore    string `goconf:"base:keystore"`
+	RPCProtocal string `goconf:"base:rpc.protocal"`
+	XHost       string `goconf:"base:xhost"`
+	ChainID     int64  `goconf:"base:chain_id"`
+	GetGasPrice bool   `goconf:"base:getgasprice"`
+	Namespace   string `goconf:"base:namespace"`
 }
 
 func newServerConfig() *serverConfig {
