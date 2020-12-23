@@ -3,6 +3,7 @@ package sdk
 import (
 	"fmt"
 	"runtime/debug"
+	"strconv"
 
 	"github.com/XunleiBlockchain/tc-libs/accounts"
 	"github.com/XunleiBlockchain/tc-libs/accounts/keystore"
@@ -61,6 +62,10 @@ func (sdk *SDKImpl) GetBalance(params interface{}) (interface{}, *Error) {
 	return sdk.c.getBalance(addr)
 }
 
+func (sdk *SDKImpl) BlockNumber() (interface{}, *Error) {
+	return sdk.c.getBlockNumber()
+}
+
 func (sdk *SDKImpl) GetTransactionCount(params interface{}) (interface{}, *Error) {
 	defer catchInterfacePanic()
 	args := params.([]interface{})
@@ -95,17 +100,62 @@ func (sdk *SDKImpl) GetTransactionByHash(params interface{}) (interface{}, *Erro
 func (sdk *SDKImpl) GetTransactionReceipt(params interface{}) (interface{}, *Error) {
 	defer catchInterfacePanic()
 	args := params.([]interface{})
-	if len(args) != 2 {
+	if len(args) != 1 {
 		return "", ErrParams
 	}
-	from := args[0].(string)
-	account := accounts.Account{Address: common.HexToAddress(from)}
-	_, err := sdk.am.Find(account)
-	if err != nil {
-		return 0, ErrAccountFind.Join(err)
+	hash := args[0].(string)
+	return sdk.c.getTransactionReceipt(hash)
+}
+
+func (sdk *SDKImpl) GetBlockByNumber(params interface{}) (interface{}, *Error) {
+	defer catchInterfacePanic()
+	var (
+		number       uint64
+		fullTxReturn bool
+		err          error
+	)
+	args := params.([]interface{})
+	if len(args) == 1 {
+		fullTxReturn = false
+	} else if len(args) == 2 {
+		fullTxReturn = args[1].(bool)
+	} else {
+		return "", ErrParams
 	}
-	hash := args[1].(string)
-	return sdk.c.getTransactionReceipt(from, hash)
+	switch args[0].(type) {
+	case string:
+		number, err = strconv.ParseUint(args[0].(string), 10, 64)
+		if err != nil {
+			return "", ErrParams
+		}
+	case int:
+		number = uint64(args[0].(int))
+	case uint:
+		number = args[0].(uint64)
+	default:
+		return "", ErrParams
+	}
+	s := fmt.Sprintf("0x%x", number)
+	return sdk.c.getBlockByNumber(s, fullTxReturn)
+}
+
+func (sdk *SDKImpl) GetBlockByHash(params interface{}) (interface{}, *Error) {
+	defer catchInterfacePanic()
+	var (
+		hash         string
+		fullTxReturn bool
+	)
+	args := params.([]interface{})
+	if len(args) == 1 {
+		hash = args[0].(string)
+		fullTxReturn = false
+	} else if len(args) == 2 {
+		hash = args[0].(string)
+		fullTxReturn = args[1].(bool)
+	} else {
+		return "", ErrParams
+	}
+	return sdk.c.getBlockByHash(hash, fullTxReturn)
 }
 
 func (sdk *SDKImpl) SendTransaction(params interface{}) (interface{}, *Error) {

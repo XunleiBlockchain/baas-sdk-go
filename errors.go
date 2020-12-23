@@ -117,4 +117,19 @@ var (
 		Code: -1024,
 		Msg:  "rpc EstimateGas err",
 	}
+
+	ErrRpcBlockNumber = &Error{
+		Code: -1025,
+		Msg:  "rpc BlockNumber err",
+	}
+
+	ErrRpcgetBlockByHash = &Error{
+		Code: -1026,
+		Msg:  "rpc getBlockByHash err",
+	}
+
+	ErrRpcgetBlockByNumber = &Error{
+		Code: -1026,
+		Msg:  "rpc getBlockByNumber err",
+	}
 )
