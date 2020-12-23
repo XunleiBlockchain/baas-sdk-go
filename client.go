@@ -65,7 +65,7 @@ type rpcReply struct {
 }
 
 func (c *client) getNonce(addr string) (nonce uint64, xerr *Error) {
-	params := []string{addr, "pending"}
+	params := []interface{}{addr, "pending"}
 	reply, err := c.rpcCall(c.nameSpace+"_getTransactionCount", params)
 	if err != nil {
 		sdklog.Error("getTransactionCount error.", "err", err)
@@ -84,8 +84,28 @@ func (c *client) getNonce(addr string) (nonce uint64, xerr *Error) {
 	return
 }
 
+func (c *client) getBlockNumber() (nonce uint64, xerr *Error) {
+	params := []interface{}{}
+	reply, err := c.rpcCall(c.nameSpace+"_blockNumber", params)
+	if err != nil {
+		sdklog.Error("get blockNumber error.", "err", err)
+		return 0, ErrRpcBlockNumber.Join(err)
+	}
+	var res rpcReply
+	json.Unmarshal(reply, &res)
+	sdklog.Info("get blockNumber.", "params", params, "reply", string(reply))
+	if res.Result != nil {
+		nonce, err = strconv.ParseUint(res.Result.(string), 0, 64)
+		if err != nil {
+			return 0, ErrRpcBlockNumber.Join(err)
+		}
+	}
+	xerr = &res.Err
+	return
+}
+
 func (c *client) getBalance(addr string) (balance interface{}, xerr *Error) {
-	params := []string{addr, "latest"}
+	params := []interface{}{addr, "latest"}
 	reply, err := c.rpcCall(c.nameSpace+"_getBalance", params)
 	if err != nil {
 		sdklog.Error("getBalance error.", "err", err)
@@ -108,7 +128,7 @@ func (c *client) getBalance(addr string) (balance interface{}, xerr *Error) {
 }
 
 func (c *client) getGasPrice() (gasPrice *big.Int, xerr *Error) {
-	params := []string{}
+	params := []interface{}{}
 	reply, err := c.rpcCall(c.nameSpace+"_gasPrice", params)
 	if err != nil {
 		sdklog.Error("gasPrice error.", "err", err)
@@ -143,7 +163,7 @@ func (c *client) estimateGas(from, to, data string, value big.Int) (gas *big.Int
 			"value": "0x" + value.Text(16),
 		},
 	}
-	authParams := []string{from, to, data}
+	authParams := []interface{}{from, to, data}
 	reply, err := c.rpcCallWithAuth(c.nameSpace+"_estimateGas", params, authParams)
 	if err != nil {
 		sdklog.Error("estimateGas error.", "err", err)
@@ -164,7 +184,7 @@ func (c *client) estimateGas(from, to, data string, value big.Int) (gas *big.Int
 }
 
 func (c *client) getTransactionByHash(from, hash string) (receipt interface{}, xerr *Error) {
-	params := []string{hash}
+	params := []interface{}{hash}
 	reply, err := c.rpcCallWithFrom(c.nameSpace+"_getTransactionByHash", params, from)
 	if err != nil {
 		sdklog.Error("getTransactionByHash error.", "err", err)
@@ -176,9 +196,9 @@ func (c *client) getTransactionByHash(from, hash string) (receipt interface{}, x
 	return res.Result, &res.Err
 }
 
-func (c *client) getTransactionReceipt(from, hash string) (receipt interface{}, xerr *Error) {
-	params := []string{hash}
-	reply, err := c.rpcCallWithFrom(c.nameSpace+"_getTransactionReceipt", params, from)
+func (c *client) getTransactionReceipt(hash string) (receipt interface{}, xerr *Error) {
+	params := []interface{}{hash}
+	reply, err := c.rpcCall(c.nameSpace+"_getTransactionReceipt", params)
 	if err != nil {
 		sdklog.Error("getTransactionReceipt error.", "err", err)
 		return nil, ErrRpcGetTransactionReceipt.Join(err)
@@ -189,8 +209,34 @@ func (c *client) getTransactionReceipt(from, hash string) (receipt interface{}, 
 	return res.Result, &res.Err
 }
 
+func (c *client) getBlockByHash(hash string, fullTxReturn bool) (receipt interface{}, xerr *Error) {
+	params := []interface{}{hash, strconv.FormatBool(fullTxReturn)}
+	reply, err := c.rpcCall(c.nameSpace+"_getBlockByHash", params)
+	if err != nil {
+		sdklog.Error("getBlockByHash error.", "err", err)
+		return nil, ErrRpcgetBlockByHash.Join(err)
+	}
+	var res rpcReply
+	json.Unmarshal(reply, &res)
+	sdklog.Info("getBlockByHash.", "params", params, "result", res)
+	return res.Result, &res.Err
+}
+
+func (c *client) getBlockByNumber(number string, fullTxReturn bool) (receipt interface{}, xerr *Error) {
+	params := []interface{}{number, fullTxReturn}
+	reply, err := c.rpcCall(c.nameSpace+"_getBlockByNumber", params)
+	if err != nil {
+		sdklog.Error("getBlockByNumber error.", "err", err)
+		return nil, ErrRpcgetBlockByNumber.Join(err)
+	}
+	var res rpcReply
+	json.Unmarshal(reply, &res)
+	sdklog.Info("getBlockByNumber.", "params", params, "result", res)
+	return res.Result, &res.Err
+}
+
 func (c *client) sendTransaction(raw string) (interface{}, *Error) {
-	params := []string{raw}
+	params := []interface{}{raw}
 	reply, err := c.rpcCall(c.nameSpace+"_sendRawTransaction", params)
 	if err != nil {
 		sdklog.Error("sendRawTransaction error.", "err", err)
@@ -203,7 +249,7 @@ func (c *client) sendTransaction(raw string) (interface{}, *Error) {
 }
 
 func (c *client) sendContractTransaction(raw string, ext interface{}) (interface{}, *Error) {
-	params := []string{raw}
+	params := []interface{}{raw}
 	reply, err := c.rpcCallWithExtension(c.nameSpace+"_sendRawTransaction", params, ext)
 	if err != nil {
 		sdklog.Error("sendContractTransaction error.", "err", err)
@@ -224,7 +270,7 @@ func (c *client) call(from, to, payload string) (interface{}, *Error) {
 		},
 		"latest",
 	}
-	authParams := []string{from, to, payload}
+	authParams := []interface{}{from, to, payload}
 	reply, err := c.rpcCallWithAuth(c.nameSpace+"_call", params, authParams)
 	if err != nil {
 		return "", ErrCall.Join(err)
@@ -251,7 +297,7 @@ func (c *client) doRPCCallWithRetry(api string, from string, data []byte) (body 
 	return
 }
 
-func (c *client) rpcCall(method string, params []string) (body []byte, err error) {
+func (c *client) rpcCall(method string, params []interface{}) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
@@ -269,7 +315,7 @@ func (c *client) rpcCall(method string, params []string) (body []byte, err error
 	return c.doRPCCallWithRetry(strSlice[1], "", data)
 }
 
-func (c *client) rpcCallWithExtension(method string, params []string, ext interface{}) (body []byte, err error) {
+func (c *client) rpcCallWithExtension(method string, params []interface{}, ext interface{}) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
@@ -288,7 +334,7 @@ func (c *client) rpcCallWithExtension(method string, params []string, ext interf
 	return c.doRPCCallWithRetry(strSlice[1], "", data)
 }
 
-func (c *client) rpcCallWithFrom(method string, params []string, from string) (body []byte, err error) {
+func (c *client) rpcCallWithFrom(method string, params []interface{}, from string) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
@@ -306,7 +352,7 @@ func (c *client) rpcCallWithFrom(method string, params []string, from string) (b
 	return c.doRPCCallWithRetry(strSlice[1], from, data)
 }
 
-func (c *client) rpcCallWithAuth(method string, params interface{}, authParams []string) (body []byte, err error) {
+func (c *client) rpcCallWithAuth(method string, params interface{}, authParams []interface{}) (body []byte, err error) {
 	rpcParams := make(map[string]interface{})
 	rpcParams["jsonrpc"] = "2.0"
 	rpcParams["method"] = method
@@ -336,7 +382,7 @@ type ChainIDReply struct {
 }
 
 func (c *client) getChainID() (int64, error) {
-	params := []string{}
+	params := []interface{}{}
 	reply, err := c.rpcCall(c.nameSpace+"_getBaasSdkConf", params)
 	if err != nil {
 		return 0, err
@@ -357,14 +403,19 @@ type rpcAuth struct {
 	Sign    string `json:"sign"`
 }
 
-func genRpcAuth(params []string, authInfo AuthInfo) *rpcAuth {
+func genRpcAuth(params []interface{}, authInfo AuthInfo) *rpcAuth {
 	if authInfo.ChainID == "" || authInfo.ID == "" || authInfo.Key == "" {
 		return nil
 	}
 	rand := getRandString(16)
 	str := rand
 	for _, v := range params {
-		str = str + strAND(v)
+		switch v.(type) {
+		case string:
+			str = str + strAND(v.(string))
+		case bool:
+			str = str + strAND(strconv.FormatBool(v.(bool)))
+		}
 	}
 	str = str + strAND(authInfo.ChainID) + strAND(authInfo.ID) + strAND(authInfo.Key)
 	hash := sha256.Sum256([]byte(str))

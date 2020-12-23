@@ -2,6 +2,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Terry-Mao/goconf v0.0.0-20161115082538-13cb73d70c44 h1:oyRla0cRmia52TlmuLp1lDysM39D0gt5xmoUU6YFfGk=
 github.com/Terry-Mao/goconf v0.0.0-20161115082538-13cb73d70c44/go.mod h1:pLupJNRivwIsgwXOsRfbZyfXLMW9X2Cgp1yshhvG/8A=
+github.com/XunleiBlockchain/tc-libs v0.0.0-20200921075319-ce7d804eeb2f h1:Bmru8TFEjYs7ugdq5Csthg0cjjjizasLP/BMZouahhs=
+github.com/XunleiBlockchain/tc-libs v0.0.0-20200921075319-ce7d804eeb2f/go.mod h1:2+oG0IgoFxnEOVtyrAhv96vs98mU7QK5k0KpS0Kytj8=
 github.com/aristanetworks/goarista v0.0.0-20190712234253-ed1100a1c015 h1:7ABPr1+uJdqESAdlVevnc/2FJGiC/K3uMg1JiELeF+0=
 github.com/aristanetworks/goarista v0.0.0-20190712234253-ed1100a1c015/go.mod h1:D/tb0zPVXnP7fmsLZjtdUhSsumbK/ij54UXjjVgMGxQ=
 github.com/bcscb8/gmsm v0.0.0-20191220070229-b97b35b41ab6 h1:DAVjqN7JgDnw9MvUuX1ln8y5DMy6oo3GSuoho2GzysY=
