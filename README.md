@@ -128,10 +128,16 @@ type SDK interface {
   GetBalance(params interface{}) (interface{}, *Error)
   // 获取某账户地址的Nonce
   GetTransactionCount(params interface{}) (interface{}, *Error)
+  // 获取当前区块高度
+  BlockNumber() (interface{}, *Error)
   // 获取指定交易的信息
   GetTransactionByHash(params interface{}) (interface{}, *Error)
   // 获取指定交易收据
   GetTransactionReceipt(params interface{}) (interface{}, *Error)
+  // 根据区块高度获取区块详情
+  GetBlockByNumber(params interface{}) (interface{}, *Error)
+  // 根据区块hash获取区块详情
+	GetBlockByHash(params interface{}) (interface{}, *Error)
   // 发送交易
   SendTransaction(params interface{}) (interface{}, *Error)
   // 发送合约交易
@@ -166,12 +172,13 @@ none
 ]
 //result
 {
- "0x33d4fcb75ce608920c7e5755304c282141dfc4dc", "0x7a4877494b59c0bd929747800ab86a8b89380ac5", "0x36419474a02a507e236dc473648197f07ab4722e", "0x7fc423bd7ed1f5d17a92bdb8c39ed620f48f7559", "0x8f470d7f2b2db7b83accd008ddabc5423c06044b", "0x622bc0938fae8b028fcf124f9ba8580719009fdc"
+ "0x33d4fcb75ce608920c7e5755304c282141dfc4dc", "0x7a4877494b59c0bd929747800ab86a8b89380ac5", "0x36419474a02a507e236dc473648197f07ab4722e", "0x7fc423bd7ed1f5d17a92bdb8c39ed620f48f7559", "0x8f470d7f2b2db7b83accd008ddabc5423c06044b", 
+ "0x622bc0938fae8b028fcf124f9ba8580719009fdc"
 }
 
 ```
 
-### 5.2 newAccount
+### 5.2 NewAccount
 
 功能描述：
 创建新的账户
@@ -198,7 +205,7 @@ none
 
 ```
 
-### 5.3 getBalance
+### 5.3 GetBalance
 
 功能描述：
 查询账户余额
@@ -224,7 +231,7 @@ none
 
 ```
 
-### 5.4 getTransactionCount
+### 5.4 GetTransactionCount
 
 功能描述：
 查询账户nonce值
@@ -251,7 +258,27 @@ none
 
 ```
 
-### 5.5 sendTransaction
+### 5.5 BlockNumber
+
+功能描述：
+查询当前区块链高度
+
+参数：
+无
+
+返回结果：
+当前链已同步的区块高度
+
+示例：
+```json
+//result
+{
+ "0x1"
+}
+
+```
+
+### 5.6 SendTransaction
 
 功能描述：
 普通转账交易
@@ -298,7 +325,7 @@ none
 
 ```
 
-### 5.6 sendContractTransaction
+### 5.7 SendContractTransaction
 功能描述：
 
 合约执行交易，支持传1个参数，2个参数和3个参数:
@@ -316,14 +343,6 @@ none
   - data：执行合约code
   - nonce: (可选) from地址nonce值
 - from账户密码(可选)
-- Object:  扩展对象（可选）
-  - callback:  回调地址
-  - prepay_id: 预交易id
-  - service_id: 第三方服务号
-  - sign：交易签名(签名方式：**MD5(SHA256(callback=XXX&prepay_id=XXX&service_id=XXX&to=XXX&value=XXX&key=XXX)), key为第三方服务号密匙**)
-  - tx_type：交易类型描述
-  - title：交易主题
-  - desc：主题描述
 
 示例：
 ```json
@@ -332,15 +351,8 @@ none
   "from": "0x622bc0938fae8b028fcf124f9ba8580719009fdc",
   "to": "0x7f7f7dbf351d4272eb282f16091c96b4819007f5",
   "data": "0x49f3870b0000000000000000000000000000000000000000000000000000000000000001"
- }, "12345678", {
-  "callback": "http://www.baidu.com",
-  "prepay_id": "201805171922030000010176643187014087",
-  "service_id": "0",
-  "sign": "80fa49b1c7e5ec06ab595850dc8e8f87",
-  "tx_type": "contract",
-  "title": "test",
-  "desc": "this is a test by skl"
- }
+ },
+ "12345678"
 ]
 ```
 
@@ -357,15 +369,8 @@ none
   "from": "0x622bc0938fae8b028fcf124f9ba8580719009fdc",
   "to": "0x7f7f7dbf351d4272eb282f16091c96b4819007f5",
   "data": "0x49f3870b0000000000000000000000000000000000000000000000000000000000000001"
- }, "12345678", {
-  "callback": "http://www.baidu.com",
-  "prepay_id": "201805171922030000010176643187014087",
-  "service_id": "0",
-  "sign": "80fa49b1c7e5ec06ab595850dc8e8f87",
-  "tx_type": "contract",
-  "title": "test",
-  "desc": "this is a test by skl"
- }
+ },
+ "12345678"
 ]
 //result
 {
@@ -373,6 +378,127 @@ none
 }
 
 ```
+
+### 5.8 GetTransactionByHash
+功能描述：
+根据交易hash获取交易详情
+
+参数：
+- hash 交易hash
+
+返回结果：
+交易详情
+
+示例：
+```json
+//request
+[
+  "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+]
+//result
+{
+  "hash":"0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
+  "nonce":"0x",
+  "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
+  "blockNumber": "0x15df", // 5599
+  "transactionIndex":  "0x1", // 1
+  "from":"0x407d73d8a49eeb85d32cf465507dd71d507100c1",
+  "to":"0x85h43d8a49eeb85d32cf465507dd71d507100c1",
+  "value":"0x7f110", // 520464
+  "gas": "0x7f110", // 520464
+  "gasPrice":"0x09184e72a000",
+  "input":"0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360",
+}
+
+```
+
+### 5.9 GetTransactionReceipt
+功能描述：
+根据交易hash获取交易回执
+
+参数：
+- hash 交易hash
+
+返回结果：
+交易receipt
+
+示例：
+```json
+//request
+[
+  "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+]
+//result
+{
+  "from": "0x3fc2c8dc5831d1ac43be0ba45bdc5b780b277fe8",
+  "signHash": "0x85841d70bde75b4e582e97012a92cd043e75ed37f64d0bb233d39b64054ab572",
+  "tx": {
+    "type": "tx",
+    "value": {
+      "gas": "0x186a0",
+      "gasPrice": "0x0",
+      "hash": "0x114631dad58102d7b8b9dcdc06e6ae49a9d1f72fa359a56bad8e0b0ff4baf11e",
+      "input": "0x",
+      "nonce": "0xb17",
+      "r": "0x1b0588746fff89d56cedf5bdd97048cbefc361b8c682f681d6ffffa7793eaa0f",
+      "s": "0x54f72eb8bcfcb6b6a34df243940ed85604c837217fe26e50f3b219e802377e15",
+      "to": "0x0000000000000000000000000000000000000000",
+      "v": "0x64606886",
+      "value": "0x0"
+    }
+  },
+  "txEntry": {
+    "blockHash": "0x8f349e245b2bd898a201296795fc856ec4a81de57e224d337b9af7a98a1dc100",
+    "blockHeight": "4377",
+    "txIndex": "1895",
+    "txRole": "0",
+    "zoneID": "0"
+  },
+  "txHash": "0x114631dad58102d7b8b9dcdc06e6ae49a9d1f72fa359a56bad8e0b0ff4baf11e",
+  "txType": "tx"
+}
+
+```
+
+### 5.10 GetBlockByNumber
+功能描述：
+根据区块高度获取区块详情
+
+参数：
+- string blockNumber区块高度
+- bool true返回完整交易对象，false只返回交易hash
+
+返回结果：
+区块详情
+
+示例：
+```json
+//request
+[
+  "0x1b4", // 436
+  true
+]
+//result
+{
+  "crossIn": [],
+  "gasLimit": "0x12a05f200",
+  "gasUsed": "0x0",
+  "hash": "0x82da6d77db11887ad6432cd62f10f181b3e2c2e1592d6d5c91ab475acb5bd54a",
+  "lenCrossIn": 0,
+  "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "miner": "0x54fb1c7d0f011dd63b08f85ed7b518ab82028100",
+  "number": "0x1122",
+  "parentHash": "0xdd7edf3051b0b8fe34ef97fbfc5bef90a675a937ca27a9d045cc92c405da59f2",
+  "receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "stateRoot": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+  "timestamp": "0x5ff2d4fa",
+  "transactions": [{},],
+  "transactionsRoot": "0x3db59484ce80cd3a09e2d05e2df6c3ef357b11cf1c4f094097e4e8811f059355"
+}
+
+```
+
+
 
 ## 6 错误码说明
 
