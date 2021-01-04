@@ -60,11 +60,20 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "getTransactionCount":
 		ret, xerr = srv.mySDK.GetTransactionCount(req.Params)
 		break
+	case "blockNumber":
+		ret, xerr = srv.mySDK.BlockNumber()
+		break
 	case "getTransactionByHash":
 		ret, xerr = srv.mySDK.GetTransactionByHash(req.Params)
 		break
 	case "getTransactionReceipt":
 		ret, xerr = srv.mySDK.GetTransactionReceipt(req.Params)
+		break
+	case "getBlockByNumber":
+		ret, xerr = srv.mySDK.GetBlockByNumber(req.Params)
+		break
+	case "getBlockByHash":
+		ret, xerr = srv.mySDK.GetBlockByHash(req.Params)
 		break
 	case "sendTransaction":
 		ret, xerr = srv.mySDK.SendTransaction(req.Params)
