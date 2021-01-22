@@ -17,7 +17,7 @@ var (
 			InsecureSkipVerify: true,
 		},
 		DisableKeepAlives:     false,
-		MaxIdleConns:          200,
+		MaxIdleConns:          500,
 		IdleConnTimeout:       120 * time.Second,
 		ResponseHeaderTimeout: 120 * time.Second,
 	}
@@ -29,7 +29,8 @@ var (
 
 // ------------------------------ inner ------------------------------
 func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, time.Second*15)
+	sdklog.Info("dial net")
+	return net.DialTimeout(network, addr, time.Second*30)
 }
 
 // ------------------------------ http cli ------------------------------

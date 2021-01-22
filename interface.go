@@ -14,6 +14,8 @@ type SDK interface {
 	SendTransaction(params interface{}) (interface{}, *Error)
 	SendContractTransaction(params interface{}) (interface{}, *Error)
 	Call(params interface{}) (interface{}, *Error)
+	SignTx(params interface{}) (interface{}, *Error)
+	SendRawTransaction(params interface{}) (interface{}, *Error)
 }
 
 var _ SDK = &SDKImpl{}

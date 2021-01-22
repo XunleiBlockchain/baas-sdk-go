@@ -129,7 +129,17 @@ var (
 	}
 
 	ErrRpcgetBlockByNumber = &Error{
-		Code: -1026,
+		Code: -1027,
 		Msg:  "rpc getBlockByNumber err",
+	}
+
+	ErrSignTxArgs = &Error{
+		Code: -1028,
+		Msg:  "SignTx args err",
+	}
+
+	ErrSendRawTransaction = &Error{
+		Code: -1029,
+		Msg:  "SendRawTransaction error",
 	}
 )
