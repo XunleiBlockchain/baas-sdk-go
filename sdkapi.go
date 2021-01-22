@@ -344,3 +344,58 @@ func (sdk *SDKImpl) Call(params interface{}) (interface{}, *Error) {
 	}
 	return sdk.c.call(callArgs.From, callArgs.To, callArgs.Data)
 }
+
+// SignTx sign tx with unlocked account and returns raw
+func (sdk *SDKImpl) SignTx(params interface{}) (interface{}, *Error) {
+	defer catchInterfacePanic()
+	args := params.([]interface{})
+	if len(args) != 1 {
+		return "", ErrParams
+	}
+	var signTxArgs SendTxArgs
+	err := signTxArgs.parseFromArgs(args[0])
+	if err != nil {
+		return "", ErrSignTxArgs.Join(err)
+	}
+	if sdk.cfg.GetGasPrice {
+		signTxArgs.GasPrice = sdk.gasPrice
+	}
+	account := accounts.Account{Address: signTxArgs.From}
+	wallet, err := sdk.am.Find(account)
+	if err != nil {
+		return "", ErrAccountFind.Join(err)
+	}
+	if signTxArgs.Nonce == nil {
+		return "", ErrSignTxArgs.Join(fmt.Errorf("nonce should not be nil"))
+	}
+	if err = signTxArgs.setDefaults(sdk.c); err != nil {
+		return "", ErrSignTxArgs.Join(err)
+	}
+	tx := signTxArgs.toTransaction()
+	stx, ok := tx.(accounts.SingerTx)
+	if !ok {
+		return nil, ErrSignTxArgs.Join(fmt.Errorf("tx is not a SignerTx type"))
+	}
+	signed, err := wallet.SignTx(account, stx, sdk.signParam)
+	if err != nil {
+		return "", ErrSignTxArgs.Join(err)
+	}
+	txbal, err := bal.EncodeToBytes(signed)
+	if err != nil {
+		return "", ErrSignTxArgs.Join(err)
+	}
+	return common.ToHex(txbal), nil
+}
+
+// SendRawTransaction send raw and returns hash
+func (sdk *SDKImpl) SendRawTransaction(params interface{}) (interface{}, *Error) {
+	args := params.([]interface{})
+	if len(args) != 1 {
+		return "", ErrParams
+	}
+	raw, ok := args[0].(string)
+	if !ok {
+		return "", ErrSendRawTransaction.Join(fmt.Errorf("params[0] type error"))
+	}
+	return sdk.c.sendTransaction(raw)
+}

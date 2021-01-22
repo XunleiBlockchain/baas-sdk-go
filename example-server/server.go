@@ -84,6 +84,9 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "call":
 		ret, xerr = srv.mySDK.Call(req.Params)
 		break
+	case "signTx":
+		ret, xerr = srv.mySDK.SignTx(req.Params)
+		break
 	default:
 		xerr = sdk.ErrMethod
 	}
