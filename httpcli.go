@@ -12,26 +12,23 @@ import (
 
 var (
 	gTransport *http.Transport = &http.Transport{
-		Dial: dialTimeout,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-		DisableKeepAlives:     false,
-		MaxIdleConns:          500,
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   1000,
 		IdleConnTimeout:       120 * time.Second,
 		ResponseHeaderTimeout: 120 * time.Second,
 	}
 
 	gHTTPClient *http.Client = &http.Client{
 		Transport: gTransport,
+		Timeout:   5 * time.Second,
 	}
 )
-
-// ------------------------------ inner ------------------------------
-func dialTimeout(network, addr string) (net.Conn, error) {
-	sdklog.Info("dial net")
-	return net.DialTimeout(network, addr, time.Second*30)
-}
 
 // ------------------------------ http cli ------------------------------
 func httpGetWithLongConn(url string) ([]byte, error) {
@@ -74,10 +71,12 @@ func httpPostWithLongConn(url string, host string, contentType string, data []by
 	}
 	req.Header.Add("User-Agent", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_0) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11")
 	resp, err := gHTTPClient.Do(req)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("httpPost client do error: %s", err.Error())
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("HttpsPost io read error: %s, body[%d]:%s", err.Error(), len(body), string(body))
